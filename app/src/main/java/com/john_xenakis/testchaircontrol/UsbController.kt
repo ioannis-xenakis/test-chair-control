@@ -11,8 +11,14 @@ import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 private const val ACTION_USB_PERMISSION = "com.john_xenakis.testchaircontrol.USB_PERMISSION"
+private const val REPORT_SIZE = 32
 
 class UsbController(private val context: Context) {
     private val usbManager: UsbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
@@ -23,6 +29,10 @@ class UsbController(private val context: Context) {
     private var usbInterface: UsbInterface? = null
 
     var onStatusChanged: ((String) -> Unit)? = null
+    var onTextReceived: ((String) -> Unit)? = null
+
+    private val scope = CoroutineScope(Dispatchers.IO + Job())
+    private var readJob: Job? = null
 
     private val permissionIntent by lazy {
         PendingIntent.getBroadcast(
@@ -130,6 +140,7 @@ class UsbController(private val context: Context) {
             }
 
         onStatusChanged?.invoke("Connected")
+        startReading()
     }
 
     fun sendCommand(report: ByteArray) {
@@ -146,7 +157,50 @@ class UsbController(private val context: Context) {
         if (result <= 0) onStatusChanged?.invoke("Failed to send command")
     }
 
+    fun sendText(text: String) {
+        val conn = connection ?: run {
+            onStatusChanged?.invoke("Not connected")
+            return
+        }
+        val out = endpointOut ?: run {
+            onStatusChanged?.invoke("No OUT endpoint")
+            return
+        }
+
+        val bytes = text.toByteArray(Charsets.UTF_8)
+        val report = ByteArray(REPORT_SIZE)
+        val len = minOf(bytes.size, REPORT_SIZE)
+        System.arraycopy(bytes, 0, report, 0, len)
+        val result = conn.bulkTransfer(out, report, report.size, 1000)
+        if (result <= 0) onStatusChanged?.invoke("Failed to send text")
+    }
+
+    fun startReading() {
+        val conn = connection ?: return
+        val epIn = endpointIn ?: return
+
+        readJob?.cancel()
+        readJob = scope.launch {
+            val buffer = ByteArray(REPORT_SIZE)
+            while (isActive) {
+                val result = conn.bulkTransfer(epIn, buffer, buffer.size, 1000)
+                if (result > 0) {
+                    val text = buffer
+                        .copyOf(result)
+                        .toString(Charsets.UTF_8)
+                        .trimEnd('\u0000')
+                    if (text.isNotEmpty()) {
+                        onTextReceived?.invoke(text)
+                    }
+                }
+            }
+        }
+    }
+
     fun close() {
+        readJob?.cancel()
+        readJob = null
+
         runCatching { connection?.releaseInterface(usbInterface) }
         runCatching { connection?.close() }
 
