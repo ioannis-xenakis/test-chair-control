@@ -83,7 +83,7 @@ class UsbController(private val context: Context) {
 
     fun findAndRequestPermission() {
         val device = usbManager.deviceList.values.firstOrNull {
-            it.vendorId == 1234 && it.productId == 5678
+            it.vendorId == 0xABCD && it.productId == 0x1234
         }
 
         if (device == null) {
