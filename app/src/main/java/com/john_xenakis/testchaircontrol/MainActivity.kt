@@ -18,12 +18,11 @@ import com.john_xenakis.testchaircontrol.ui.theme.TestChairControlTheme
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var usb: UsbController
+    private val usb by lazy { UsbController(applicationContext) }
 
     private val vm: ChairViewModel by viewModels {
         object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                usb = UsbController(applicationContext)
                 return ChairViewModel(usb) as T
             }
         }
