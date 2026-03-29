@@ -10,7 +10,7 @@ import kotlinx.coroutines.launch
 
 
 class ChairViewModel(
-    private val usb: UsbController
+    private val aoa: AoAController
 ) : ViewModel() {
     var inputText by mutableStateOf("")
         private set
@@ -22,14 +22,14 @@ class ChairViewModel(
         private set
 
     init {
-        usb.onStatusChanged = { msg ->
+        aoa.onStatusChanged = { msg ->
             viewModelScope.launch(Dispatchers.Main) {
                 status = msg
             }
         }
-        usb.onTextReceived = { msg ->
+        aoa.onTextReceived = { text ->
             viewModelScope.launch(Dispatchers.Main) {
-                receivedText = msg
+                receivedText = text
             }
         }
     }
@@ -40,18 +40,18 @@ class ChairViewModel(
 
     fun connect() {
         status = "Connecting..."
-        usb.findAndRequestPermission()
+        aoa.tryOpenExistingAccessory()
     }
 
     fun send() {
         val text = inputText.trim()
         if (text.isEmpty()) return
-        usb.sendText(text)
+        aoa.sendText(text)
         inputText = ""
     }
 
     override fun onCleared() {
-        usb.close()
+        aoa.close()
         super.onCleared()
     }
 }
