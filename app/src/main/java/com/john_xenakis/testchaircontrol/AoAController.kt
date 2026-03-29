@@ -3,6 +3,7 @@ package com.john_xenakis.testchaircontrol
 import android.content.Context
 import android.hardware.usb.UsbAccessory
 import android.hardware.usb.UsbManager
+import android.util.Log
 import kotlinx.coroutines.*
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -26,6 +27,8 @@ class AoAController(private val context: Context) {
             onStatusChanged?.invoke("No accessory in intent")
             return
         }
+        Log.d("AOA", "openFromIntent called")
+        Log.d("AOA", "Accessory received: $accessory")
         openAccessory(accessory)
     }
 
